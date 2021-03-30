@@ -1,6 +1,7 @@
 const path = require('path');
 
 var ImageProcessor = require('./imageprocessor.js');
+// const FileListPlugin = require('./filelistplugin')
 
 module.exports = {
     entry: './src/index.js',
@@ -10,5 +11,7 @@ module.exports = {
         filename: 'main.js',
         path: path.resolve(__dirname, 'dist'),
     },
-    plugins: [new ImageProcessor({ options: true })],
+    plugins: [
+        new ImageProcessor({ options: true })
+    ],
 };
