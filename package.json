@@ -1,0 +1,33 @@
+{
+  "name": "image-processor-webpack-plugin",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "build": "webpack"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexanderhorner/image-processor-webpack-plugin.git"
+  },
+  "keywords": [
+    "Webpack",
+    "Image",
+    "Minimization",
+    "Processing"
+  ],
+  "author": "Alexander Horner",
+  "license": "",
+  "bugs": {
+    "url": "https://github.com/alexanderhorner/image-processor-webpack-plugin/issues"
+  },
+  "homepage": "https://github.com/alexanderhorner/image-processor-webpack-plugin#readme",
+  "dependencies": {
+    "readdirp": "^3.5.0",
+    "sharp": "^0.27.1"
+  },
+  "devDependencies": {
+    "webpack": "^5.4.0",
+    "webpack-cli": "^4.5.0"
+  }
+}
