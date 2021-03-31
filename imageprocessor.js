@@ -75,21 +75,27 @@ class ImageProcessor {
     async scanAllFiles(callback) {
         console.log(this.inputPath);
 
-        for await (const entry of readdirp(this.inputPath)) {
+        // for await (const entry of readdirp(this.inputPath)) {
 
-            await resolveAfter2Seconds("hi")
+        //     await resolveAfter2Seconds("hi")
             
-            const {path} = entry;
-            console.log(`${JSON.stringify({path})}`);
-        }
+        //     const {path} = entry;
+        //     console.log(`${JSON.stringify({path})}`);
+        // }
 
-        console.log('test')
-
-        callback()
+        readdirp(this.inputPath)
+            .on('data', (entry) => {
+                this.processImage(entry.path)
+            })
+            .on('end', () => {
+                console.log('done')
+                callback()
+            });   
     }
 
     async processImage(pathToImage) {
-
+        await resolveAfter2Seconds()
+        console.log(pathToImage);
     }
 }
 
