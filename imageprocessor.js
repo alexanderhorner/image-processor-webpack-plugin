@@ -4,24 +4,57 @@ const readdirp = require('readdirp');
 const path = require('path');
 const { callbackify } = require('util');
 
+
+function resolveAfter2Seconds(x) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(x);
+      }, 2000);
+    });
+}
+
+
 class ImageProcessor {
+    constructor(options) {
+
+        const defaultOptions = {
+            inputPath: '',
+            outputPath: '',
+            configurations: []
+        }
+
+        this.options = {...defaultOptions, ...options}
+        this.firstRun = true
+        this.inputPath = ''
+        
+
+
+        console.log(this.options);
+    }
+
     apply(compiler) {
 
         compiler.hooks.emit.tapAsync('ImageProcessor', (compilation, callback) => {
 
-            // If not watch run, add all files to queue
-            // process queue
+            if (this.firstRun == true) {
+                this.firstRun = false
 
-            const dependency = path.join(compiler.context, 'src/img')
-            compilation.contextDependencies.add(dependency);
-            compilation.fileDependencies.add(dependency + '/1test.txt');
+                this.inputPath = path.join(compiler.context, this.options.inputPath)
+                compilation.contextDependencies.add(this.inputPath);
+
+                this.scanAllFiles(callback)
+
+            }
+
+            
+            compilation.fileDependencies.add(this.inputPath + '/1test.txt');
 
             // Insert this list into the webpack build as a new file asset:
             compilation.assets['test.txt'] = {
                 source: () => "test"
             };
       
-            callback();
+
         });
 
         compiler.hooks.watchRun.tap('WatchRun', (compilation) => {
@@ -37,6 +70,26 @@ class ImageProcessor {
             }
         });
     
+    }
+
+    async scanAllFiles(callback) {
+        console.log(this.inputPath);
+
+        for await (const entry of readdirp(this.inputPath)) {
+
+            await resolveAfter2Seconds("hi")
+            
+            const {path} = entry;
+            console.log(`${JSON.stringify({path})}`);
+        }
+
+        console.log('test')
+
+        callback()
+    }
+
+    async processImage(pathToImage) {
+
     }
 }
 

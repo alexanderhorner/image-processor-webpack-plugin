@@ -12,6 +12,9 @@ module.exports = {
         path: path.resolve(__dirname, 'dist'),
     },
     plugins: [
-        new ImageProcessor({ options: true })
+        new ImageProcessor({
+            inputPath: "src/img",
+            outputPath: "dist/imgoutput/"
+        })
     ],
 };
