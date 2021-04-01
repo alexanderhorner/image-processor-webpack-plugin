@@ -12,7 +12,6 @@ function resolveAfterXMilliseconds(x) {
     });
 }
 
-
 class ImageProcessor {
     constructor(options) {
 
@@ -45,7 +44,7 @@ class ImageProcessor {
                 // Add input directory to dependencies
                 compilation.contextDependencies.add(this.finalInputDir);
 
-                this.scanAllFilesAndProccessThem().then(() => callback())
+                this.queueAllFiles().then(() => callback())
 
             }
 
@@ -74,27 +73,33 @@ class ImageProcessor {
     
     }
 
-    async scanAllFilesAndProccessThem() {
+    async queueAllFiles() {
+        
         var promises = []
 
         const fileFilter = ['*.jpg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
 
         for await (const entry of readdirp(this.finalInputDir, {fileFilter: fileFilter})) {
-            promises.push(this.processImage(entry.path))
+            
+            const imgPathInfo = {
+                imgFullPath: entry.fullPath,
+                imgDir: entry.path, // relative to the input directory
+                imgFileName: path.parse(entry.path).name,
+                imgFileExtension: path.extname(entry.path)
+            }
+            
+            promises.push(this.queueAllConfigs(imgPathInfo))
         }
 
         await Promise.all(promises)
     }
 
-    async processImage(pathToImage) {
-        await resolveAfterXMilliseconds(500)
+    async queueAllConfigs(imgPathInfo) {
 
-        const imgFileName = path.parse(pathToImage).name;
-        const imgDir = path.dirname(pathToImage) // relative to the input directory
-        const imgFileExtension = path.extname(pathToImage)
+        var promises = []
 
         this.options.configurations.forEach(config => {
-                
+
             const defaultConfig = {
                 fileNamePrefix: '',
                 fileNameSuffix: '',
@@ -104,24 +109,32 @@ class ImageProcessor {
 
             config = {...defaultConfig, ...config}
 
-            const sharpMethods = config.sharpMethods
-
-            var $sharp = sharp(pathToImage) 
-
-            Object.keys(sharpMethods).forEach(methodName => {
-                const args = sharpMethods[methodName]
-                $sharp = $sharp[methodName](...args)
-            });
-            
-            const finalOutputPath = path.join(this.finalOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
-
-            if (!fs.existsSync(path.dirname(finalOutputPath))) {
-                fs.mkdirSync(path.dirname(finalOutputPath), {recursive: true});
-            }
-
-            $sharp.toFile(finalOutputPath)
-
+            promises.push(this.processConfig(imgPathInfo, config))
         })
+
+        await Promise.all(promises)
+    }
+
+    async processConfig(imgPathInfo, config) {
+
+        const { imgFullPath, imgDir, imgFileName, imgFileExtension } = imgPathInfo
+        
+        const sharpMethods = config.sharpMethods
+
+        var sharpInstance = sharp(imgFullPath) 
+
+        Object.keys(sharpMethods).forEach(methodName => {
+            const args = sharpMethods[methodName]
+            sharpInstance = sharpInstance[methodName](...args)
+        });
+        
+        const finalOutputPath = path.join(this.finalOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
+
+        if (!fs.existsSync(path.dirname(finalOutputPath))) {
+            fs.mkdirSync(path.dirname(finalOutputPath), {recursive: true});
+        }
+
+        await sharpInstance.toFile('DEBUGTESTOUPUTWOWOWO.jpg')
     }
 }
 
