@@ -1,5 +1,5 @@
 const sharp = require('sharp')
-const fs = require("fs");
+const fs = require('fs');
 const readdirp = require('readdirp');
 const path = require('path');
 
@@ -53,7 +53,7 @@ class ImageProcessor {
 
             // Insert this list into the webpack build as a new file asset:
             compilation.assets['test.txt'] = {
-                source: () => "test"
+                source: () => 'test'
             };
       
 
@@ -77,7 +77,9 @@ class ImageProcessor {
     async scanAllFilesAndProccessThem() {
         var promises = []
 
-        for await (const entry of readdirp(this.finalInputDir)) {
+        const fileFilter = ['*.jpg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
+
+        for await (const entry of readdirp(this.finalInputDir, {fileFilter: fileFilter})) {
             promises.push(this.processImage(entry.path))
         }
 
@@ -87,12 +89,16 @@ class ImageProcessor {
     async processImage(pathToImage) {
         await resolveAfterXMilliseconds(500)
 
+        const imgFileName = path.parse(pathToImage).name;
+        const imgDir = path.dirname(pathToImage) // relative to the input directory
+        const imgFileExtension = path.extname(pathToImage)
+
         this.options.configurations.forEach(config => {
                 
             const defaultConfig = {
-                fileNamePrefix: "",
-                fileNameSuffix: "",
-                directory: "",
+                fileNamePrefix: '',
+                fileNameSuffix: '',
+                directory: '',
                 sharpMethods: []
             }
 
@@ -100,14 +106,14 @@ class ImageProcessor {
 
             const sharpMethods = config.sharpMethods
 
-            var $sharp = sharp(pathToImage)
+            var $sharp = sharp(pathToImage) 
 
             Object.keys(sharpMethods).forEach(methodName => {
                 const args = sharpMethods[methodName]
                 $sharp = $sharp[methodName](...args)
             });
             
-            const finalOutputPath = path.join(this.finalOutputDir, config.directory, config.fileNamePrefix + filename + config.fileNameSuffix + fileExtension);
+            const finalOutputPath = path.join(this.finalOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
 
             if (!fs.existsSync(path.dirname(finalOutputPath))) {
                 fs.mkdirSync(path.dirname(finalOutputPath), {recursive: true});
