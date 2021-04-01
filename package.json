@@ -24,7 +24,7 @@
   "homepage": "https://github.com/alexanderhorner/image-processor-webpack-plugin#readme",
   "dependencies": {
     "readdirp": "^3.5.0",
-    "sharp": "^0.27.1"
+    "sharp": "^0.28.0"
   },
   "devDependencies": {
     "webpack": "^5.4.0",
