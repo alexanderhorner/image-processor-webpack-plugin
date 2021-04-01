@@ -13,8 +13,25 @@ module.exports = {
     },
     plugins: [
         new ImageProcessor({
-            inputPath: "src/img",
-            outputPath: "dist/imgoutput/"
+            inputDir: "src/img",
+            outputDir: "dist/imgoutput/",
+            configurations: [
+                {
+                    fileNamePrefix: "123",
+                    fileNameSuffix: "321",
+                    directory: "TESTDIR_1",
+                    sharpMethods: {
+                        resize: [{ width: 100 }]
+                    }
+                },
+                {
+                    directory: "TESTDIR_2/TEST",
+                    sharpMethods: {
+                        resize: [{ height: 200 }],
+                        rotate: [160]
+                    }
+                }
+            ]
         })
     ],
 };
