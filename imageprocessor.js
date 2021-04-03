@@ -17,15 +17,20 @@ class ImageProcessor {
 
         const defaultOptions = {
             inputDir: '',
-            outputDir: '',
+            outputDir: 'dist',
             configurations: []
         }
 
         this.options = {...defaultOptions, ...options}
         
         this.firstRun = true
-        this.finalInputDir = ''
-        this.finalOutputDir = ''
+        this.inputDir = this.options.inputDir
+        this.outputDir = this.options.outputDir
+        this.fullInputDir
+        this.fullOutputDir
+        this.compilerDotOutputPath
+
+        this.compilation
         
         console.log(this.options);
     }
@@ -37,23 +42,24 @@ class ImageProcessor {
             if (this.firstRun == true) {
                 this.firstRun = false
 
+                this.compilerDotOutputPath = compiler.outputPath
+
                 // combine context and options input/ouputDir
-                this.finalInputDir = path.join(compiler.context, this.options.inputDir)
-                this.finalOutputDir = path.join(compiler.context, this.options.outputDir)
+                this.fullInputDir = path.join(compiler.context, this.options.inputDir)
+                this.fullOutputDir = path.join(compiler.context, this.options.outputDir)
 
                 // Add input directory to dependencies
-                compilation.contextDependencies.add(this.finalInputDir);
+                compilation.contextDependencies.add(this.fullInputDir);
+
+                this.compilation = compilation
 
                 this.queueAllFiles().then(() => callback())
 
             }
 
-            // compilation.fileDependencies.add(this.finalInputDir + '/1test.txt');
+            // compilation.fileDependencies.add(this.fullInputDir + '/1test.txt');
 
-            // Insert this list into the webpack build as a new file asset:
-            compilation.assets['test.txt'] = {
-                source: () => 'test'
-            };
+            
       
 
         });
@@ -77,13 +83,13 @@ class ImageProcessor {
         
         var promises = []
 
-        const fileFilter = ['*.jpg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
+        const fileFilter = ['*.jpg', '.jpeg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
 
-        for await (const entry of readdirp(this.finalInputDir, {fileFilter: fileFilter})) {
+        for await (const entry of readdirp(this.fullInputDir, {fileFilter: fileFilter})) {
             
             const imgPathInfo = {
                 imgFullPath: entry.fullPath,
-                imgDir: entry.path, // relative to the input directory
+                imgDir: path.dirname(entry.path), // relative to the input directory
                 imgFileName: path.parse(entry.path).name,
                 imgFileExtension: path.extname(entry.path)
             }
@@ -121,20 +127,44 @@ class ImageProcessor {
         
         const sharpMethods = config.sharpMethods
 
-        var sharpInstance = sharp(imgFullPath) 
+        try {
+            var sharpInstance = sharp(imgFullPath)
+        } catch (error) {
+            console.log(error);
+        }
 
         Object.keys(sharpMethods).forEach(methodName => {
             const args = sharpMethods[methodName]
-            sharpInstance = sharpInstance[methodName](...args)
+            try {
+                sharpInstance = sharpInstance[methodName](...args)
+            } catch (error) {
+                console.log(error);
+            }
+            
         });
         
-        const finalOutputPath = path.join(this.finalOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
+        const fullOutputPath = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
+        const outputPath = path.join(this.outputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
 
-        if (!fs.existsSync(path.dirname(finalOutputPath))) {
-            fs.mkdirSync(path.dirname(finalOutputPath), {recursive: true});
+
+        if (!fs.existsSync(path.dirname(fullOutputPath))) {
+            fs.mkdirSync(path.dirname(outputPath), {recursive: true});
         }
 
-        await sharpInstance.toFile('DEBUGTESTOUPUTWOWOWO.jpg')
+        var finalImgRaw
+
+        try {
+            finalImgRaw = await sharpInstance.toBuffer()
+        } catch (error) {
+            console.log(error);
+        }
+
+        const ouputPathRelativeToCompilerDotOutputPath = path.normalize(fullOutputPath).replace(this.compilerDotOutputPath, '')
+
+        // Insert this list into the webpack build as a new file asset:
+        this.compilation.assets[ouputPathRelativeToCompilerDotOutputPath] = {
+            source: () => finalImgRaw
+        };
     }
 }
 

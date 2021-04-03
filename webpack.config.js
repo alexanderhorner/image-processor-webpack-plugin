@@ -17,60 +17,10 @@ module.exports = {
             outputDir: 'dist/imgoutput/',
             configurations: [
                 {
-                    fileNamePrefix: '123',
-                    fileNameSuffix: '321',
-                    directory: 'TESTDIR_1',
+                    fileNameSuffix: '_W1100Q50',
+                    directory: '',
                     sharpMethods: {
-                        resize: [{ width: 100 }]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_2/TEST',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
-                    }
-                },
-                {
-                    directory: 'TESTDIR_3',
-                    sharpMethods: {
-                        resize: [{ height: 200 }],
-                        rotate: [160]
+                        resize: [{ width: 1100 }],
                     }
                 }
             ]
