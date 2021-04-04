@@ -13,16 +13,39 @@ module.exports = {
     },
     plugins: [
         new ImageProcessor({
-            inputDir: 'src/img',
-            outputDir: 'dist/imgoutput/',
+            inputDir: 'src/img/benchmark',
+            outputDir: 'dist/img/benchmark',
             configurations: [
                 {
-                    fileNameSuffix: '_W1100Q50',
-                    directory: '',
+                    directory: 'jpeg',
                     sharpMethods: {
-                        resize: [{ width: 1100 }],
+                        resize: [{ width: 1080, height: 1080 }],
+                        jpeg: [{ quality: 50 }]
                     }
-                }
+                },
+                {
+                    directory: 'webp',
+                    sharpMethods: {
+                        resize: [{ width: 1080, height: 1080 }],
+                        webp: [{ quality: 50 }]
+                    }
+                },
+                {
+                    directory: 'jpeg',
+                    suffix: '-small',
+                    sharpMethods: {
+                        resize: [{ width: 256, height: 256 }],
+                        jpeg: [{ quality: 50 }]
+                    }
+                },
+                {
+                    directory: 'webp',
+                    suffix: '-small',
+                    sharpMethods: {
+                        resize: [{ width: 256, height: 256 }],
+                        webp: [{ quality: 50 }]
+                    }
+                },
             ]
         })
     ],

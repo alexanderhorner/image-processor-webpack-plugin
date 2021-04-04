@@ -12,6 +12,8 @@ function resolveAfterXMilliseconds(x) {
     });
 }
 
+var debugCounter = 0
+
 class ImageProcessor {
     constructor(options) {
 
@@ -31,8 +33,6 @@ class ImageProcessor {
         this.compilerDotOutputPath
 
         this.compilation
-        
-        console.log(this.options);
     }
 
     apply(compiler) {
@@ -131,37 +131,45 @@ class ImageProcessor {
             var sharpInstance = sharp(imgFullPath)
         } catch (error) {
             console.log(error);
+            return
         }
-
+        
         Object.keys(sharpMethods).forEach(methodName => {
             const args = sharpMethods[methodName]
             try {
                 sharpInstance = sharpInstance[methodName](...args)
             } catch (error) {
+                console.log(`"${methodName}" is not a valid sharp function!`);
                 console.log(error);
             }
             
         });
-        
-        const fullOutputPath = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
-        const outputPath = path.join(this.outputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + imgFileExtension);
 
-
-        if (!fs.existsSync(path.dirname(fullOutputPath))) {
-            fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-        }
-
-        var finalImgRaw
+        let finalImgRaw
+        let finalImgformat
 
         try {
             finalImgRaw = await sharpInstance.toBuffer()
+
+            // Read and set final output format
+            const { format } = await sharp(finalImgRaw).metadata()
+            finalImgformat = format
+
         } catch (error) {
             console.log(error);
+            return
         }
+
+        const fullOutputPath = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat);
+        const outputPath = path.join(this.outputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat);
+
+
+        // if (!fs.existsSync(path.dirname(fullOutputPath))) {
+        //     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+        // }
 
         const ouputPathRelativeToCompilerDotOutputPath = path.normalize(fullOutputPath).replace(this.compilerDotOutputPath, '')
 
-        // Insert this list into the webpack build as a new file asset:
         this.compilation.assets[ouputPathRelativeToCompilerDotOutputPath] = {
             source: () => finalImgRaw
         };
