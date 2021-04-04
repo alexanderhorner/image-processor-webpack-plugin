@@ -12,6 +12,10 @@ function resolveAfterXMilliseconds(x) {
     });
 }
 
+const CONSOLE_COLOR_WARNING = '\x1b[33m%s\x1b[0m'
+const CONSOLE_COLOR_CRITICAL = '\x1b[41m%s\x1b[0m'
+
+
 var debugCounter = 0
 
 class ImageProcessor {
@@ -134,16 +138,28 @@ class ImageProcessor {
             return
         }
         
-        Object.keys(sharpMethods).forEach(methodName => {
-            const args = sharpMethods[methodName]
-            try {
-                sharpInstance = sharpInstance[methodName](...args)
-            } catch (error) {
-                console.log(`"${methodName}" is not a valid sharp function!`);
-                console.log(error);
-            }
-            
-        });
+        // go through every sharpmethod and convert to method
+        switch (typeof sharpMethods) {
+
+            case 'object':
+                Object.keys(sharpMethods).forEach(methodName => {
+                    const args = sharpMethods[methodName]
+                    try {
+                        sharpInstance = sharpInstance[methodName](...args)
+                    } catch (error) {
+                        console.log(`"${methodName}" is not a valid sharp function!`);
+                        console.log(CONSOLE_COLOR_WARNING, error);
+                    }
+                });
+                break
+
+            case 'function':
+                try {
+                    sharpInstance = sharpMethods(sharpInstance)
+                } catch (error) {
+                    console.log(CONSOLE_COLOR_WARNING, error);
+                }
+        }
 
         let finalImgRaw
         let finalImgformat
@@ -156,7 +172,7 @@ class ImageProcessor {
             finalImgformat = format
 
         } catch (error) {
-            console.log(error);
+            console.log(CONSOLE_COLOR_CRITICAL, error);
             return
         }
 
