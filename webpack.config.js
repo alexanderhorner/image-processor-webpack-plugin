@@ -16,37 +16,6 @@ module.exports = {
             inputDir: 'src/img/benchmark',
             outputDir: 'dist/img/benchmark',
             configurations: [
-                // {
-                //     directory: 'jpeg',
-                //     sharpMethods: {
-                //         resize: [{ width: 1080, height: 1080 }],
-                //         jpeg: [{ quality: 50 }]
-                //     }
-                // },
-                // {
-                //     directory: 'webp',
-                //     sharpMethods: {
-                //         resize: [{ width: 1080, height: 1080 }],
-                //         webp: [{ quality: 50 }]
-                //     }
-                // },
-                // {
-                //     directory: 'jpeg',
-                //     suffix: '-small',
-                //     sharpMethods: {
-                //         resize: [{ width: 256, height: 256 }],
-                //         jpeg: [{ quality: 50 }]
-                //     }
-                // },
-                // {
-                //     directory: 'webp',
-                //     fileNameSuffix: '-small',
-                //     sharpMethods: {
-                //         resize: [{ width: 256, height: 256 }],
-                //         webp: [{ quality: 50 }]
-                //     }
-                // },
-
                 {
                     directory: 'jpeg',
                     sharpMethods: obj => 

@@ -2,7 +2,12 @@ const sharp = require('sharp')
 const fs = require('fs');
 const readdirp = require('readdirp');
 const path = require('path');
+const cpus = require('os').cpus()
+const { Sema } = require('async-sema');
 
+const PROCESSOR_COUNT = cpus.length
+
+const queue = new Sema(PROCESSOR_COUNT);
 
 function resolveAfterXMilliseconds(x) {
     return new Promise(resolve => {
@@ -126,6 +131,7 @@ class ImageProcessor {
     }
 
     async processConfig(imgPathInfo, config) {
+        await queue.acquire()
 
         const { imgFullPath, imgDir, imgFileName, imgFileExtension } = imgPathInfo
         
@@ -189,6 +195,7 @@ class ImageProcessor {
         this.compilation.assets[ouputPathRelativeToCompilerDotOutputPath] = {
             source: () => finalImgRaw
         };
+        queue.release();
     }
 }
 
