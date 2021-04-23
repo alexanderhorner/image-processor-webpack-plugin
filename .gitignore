@@ -2,3 +2,10 @@ node_modules
 .vscode
 dist
 .DS_Store
+
+*
+!imageprocessor.js
+!LICENSE
+!package-lock.json
+!package.json
+!imageprocessor
