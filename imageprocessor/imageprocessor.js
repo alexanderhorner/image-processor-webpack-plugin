@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 const sharp = require('sharp');
 const fs = require('fs');
 const readdirp = require('readdirp');
@@ -10,10 +9,6 @@ const PROCESSOR_COUNT = cpus.length;
 const queue = new Sema(PROCESSOR_COUNT);
 const CONSOLE_COLOR_WARNING = '\x1b[33m%s\x1b[0m';
 const CONSOLE_COLOR_CRITICAL = '\x1b[41m%s\x1b[0m';
-const promiseEach = async (arrayOfPromises, func) => {
-    for (const item of arrayOfPromises)
-        await func(item);
-};
 class ImageProcessorPlugin {
     constructor(optionsUnclean) {
         this.firstRun = true;
@@ -25,22 +20,31 @@ class ImageProcessorPlugin {
         this.options = { ...defaultOptions, ...optionsUnclean };
     }
     apply(compiler) {
-        compiler.hooks.emit.tapPromise('ImageProcessor', async (compilation, callback) => {
-            if (this.firstRun == true) {
-                this.firstRun = false;
-                this.compilerOutputPath = compiler.outputPath;
-                // combine context and options input/ouputDir
-                this.fullInputDir = path.join(compiler.context, this.options.inputDir);
-                this.fullOutputDir = path.join(compiler.context, this.options.outputDir);
-                // Add input directory to dependencies
-                compilation.contextDependencies.add(this.fullInputDir);
-                this.compilation = compilation;
-                // TODO: add parameter fullInputDir
-                const promises = await new ConfigQueuer(this.options.configurations, '.').queueAllConfigs();
-                promiseEach(promises, () => {
-                });
-                resolve();
-            }
+        compiler.hooks.emit.tapPromise('ImageProcessor', (compilation) => {
+            return new Promise((resolve, reject) => {
+                if (this.firstRun == true) {
+                    this.firstRun = false;
+                    this.compilerOutputPath = compiler.outputPath;
+                    // combine context and options input/ouputDir
+                    // EXAMPLE: compiler.context: '/Users/alexanderhorner/Documents/GitHub/image-processor-webpack-plugin'
+                    // EXAMPLE: this.options.inputDir: 'src/img/benchmark'
+                    this.fullInputDir = path.join(compiler.context, this.options.inputDir);
+                    this.fullOutputDir = path.join(compiler.context, this.options.outputDir);
+                    // Add input directory to dependencies
+                    compilation.contextDependencies.add(this.fullInputDir);
+                    this.compilation = compilation;
+                    // TODO: add parameter fullInputDir
+                    const promises = new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs();
+                    promises.forEach(promise => {
+                        promise.then((val) => {
+                            const { finalImgRaw, outputPathFull } = val;
+                            this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw);
+                            queue.release();
+                        });
+                    });
+                }
+                resolve('');
+            });
         });
         compiler.hooks.watchRun.tap('WatchRun', (compilation) => {
             if (compilation.modifiedFiles) {
@@ -102,25 +106,19 @@ class ImageProcessor {
         catch (error) {
             console.log(CONSOLE_COLOR_WARNING, error);
         }
-        let finalImgRaw;
         let finalImgformat;
         try {
-            finalImgRaw = await sharpInstance.toBuffer();
+            this.finalImgRaw = await sharpInstance.toBuffer();
             // Read and set final output format
-            const { format } = await sharp(finalImgRaw).metadata();
+            const { format } = await sharp(this.finalImgRaw).metadata();
             finalImgformat = format;
         }
         catch (error) {
             console.log(CONSOLE_COLOR_CRITICAL, error);
             return;
         }
-        const fullOutputPath = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat);
-        const ouputPathRelativeToCompilerDotOutputPath = path.normalize(fullOutputPath).replace(this.compilerDotOutputPath, '');
-        this.compilation.assets[ouputPathRelativeToCompilerDotOutputPath] = {
-            source: () => finalImgRaw
-        };
-        console.log('Processed: ' + ouputPathRelativeToCompilerDotOutputPath);
-        queue.release();
+        // this.outputPathFull = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat)
+        return this;
     }
     emmitImage() {
     }
