@@ -3,9 +3,4 @@ node_modules
 dist
 .DS_Store
 
-*
-!imageprocessor.js
-!LICENSE
-!package-lock.json
-!package.json
-!imageprocessor
+src
