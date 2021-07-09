@@ -1,3 +1,7 @@
+const { worker, isMainThread, parentPort, workerData } = require('worker_threads');
+
+require('./processingWorker.js')
+
 const sharp = require('sharp')
 const fs = require('fs')
 const readdirp = require('readdirp')
@@ -6,11 +10,13 @@ const cpus = require('os').cpus()
 const { Sema } = require('async-sema')
 const hashData = require('data-to-hash').default
 
+
 const PROCESSOR_COUNT = cpus.length
-const queue = new Sema(PROCESSOR_COUNT)
+const queue = new Sema(PROCESSOR_COUNT) // TODO: ADD queue functionity again
 
 const CONSOLE_COLOR_WARNING = '\x1b[33m%s\x1b[0m'
 const CONSOLE_COLOR_CRITICAL = '\x1b[41m%s\x1b[0m'
+
 
 interface Options {
     inputDir: string
@@ -53,11 +59,11 @@ class ImageProcessorPlugin {
     apply(compiler) {
 
         compiler.hooks.emit.tapPromise('ImageProcessor', (compilation) => {
-
+            
             return new Promise((resolve, reject) => {
 
                 if (this.firstRun == true) {
-
+                    
                     this.firstRun = false
     
                     this.compilerOutputPath = compiler.outputPath
@@ -72,20 +78,27 @@ class ImageProcessorPlugin {
                     compilation.contextDependencies.add(this.fullInputDir);
     
                     this.compilation = compilation
-    
-                    // TODO: add parameter fullInputDir
-                    const promises: Promise<ImageProcessor>[] = new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs()
-                    promises.forEach(promise => {
-                        promise.then((val) => {
-                            const { finalImgRaw, outputPathFull } = val
-                            this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw)
-                            queue.release();
+
+                    new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs().then((configPromises) => {
+                        Promise.all(configPromises).then(() => {
+                            resolve('')
+                        }).catch((error) => {
+                            console.log(error)
+                            reject(error)
                         })
-                    });    
+                    })
+
+                    // promises.forEach(promise => {
+                    //     promise.then((val) => {
+                    //         const { finalImgRaw, outputPathFull } = val
+                    //         this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw)
+                    //         queue.release();
+                    //     })
+                    // });
+
+                } else {
+                    reject('[ImageProcessorPlugin] Not first run!')
                 }
-
-                resolve('')
-
             })
         });
 
@@ -148,7 +161,7 @@ class ConfigQueuer {
                 const configuration = {...defaultConfig, ...configurationUnclean}
     
                 promises.push(
-                    new ImageProcessor('', '', configuration.sharpMethods).processImage()
+                    new ImageProcessor(imgPathInfo.imgFullPath, '', configuration.sharpMethods).processImage()
                 )
             })
         }
@@ -164,9 +177,9 @@ class ImageProcessor {
     finalImgRaw: any
     outputPathFull: string
 
-    constructor(inputPathFull: string, ouputPathFull: string, sharpMethods: Function) {
+    constructor(inputPathFull: string, outputPathFull: string, sharpMethods: Function) {
         this.inputPathFull = inputPathFull
-        ouputPathFull = ouputPathFull
+        this.outputPathFull = outputPathFull
         this.sharpMethods = sharpMethods
     }
 
@@ -195,21 +208,14 @@ class ImageProcessor {
             return
         }
 
+        console.log("Computed " + path.basename(this.inputPathFull));
+        
+
         // this.outputPathFull = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat)
 
+        queue.release()
         return this
     }
-
-    private emmitImage() {
-
-    }
-
-    // emmitManifest() {
-    //     this.compilation.assets[] = {
-    //         source: () => this.manifest
-    //     };
-    // }
-    
 }
 
 module.exports = ImageProcessorPlugin;

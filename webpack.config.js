@@ -15,25 +15,25 @@ module.exports = {
             inputDir: 'src/img/benchmark',
             outputDir: 'dist/img/benchmark',
             configurations: [
-                // {
-                //     directory: 'jpeg',
-                //     sharpMethods: obj => 
-                //         obj.resize({ width: 1080, height: 1080 })
-                //             .jpeg({ quality: 50 })
-                // },
-                // {
-                //     directory: 'webp',
-                //     sharpMethods: obj => 
-                //         obj.resize({ width: 1080, height: 1080 })
-                //             .webp({ quality: 50 })
-                // },
-                // {
-                //     directory: 'jpeg',
-                //     fileNameSuffix: '-small',
-                //     sharpMethods: obj => 
-                //         obj.resize({ width: 265, height: 265 })
-                //             .jpeg({ quality: 50 })
-                // },
+                {
+                    directory: 'jpeg',
+                    sharpMethods: obj => 
+                        obj.resize({ width: 1080, height: 1080 })
+                            .jpeg({ quality: 60 })
+                },
+                {
+                    directory: 'webp',
+                    sharpMethods: obj => 
+                        obj.resize({ width: 1080, height: 1080 })
+                            .webp({ quality: 60 })
+                },
+                {
+                    directory: 'jpeg',
+                    fileNameSuffix: '-small',
+                    sharpMethods: obj => 
+                        obj.resize({ width: 265, height: 265 })
+                            .jpeg({ quality: 50 })
+                },
                 {
                     directory: 'webp',
                     fileNameSuffix: '-small',

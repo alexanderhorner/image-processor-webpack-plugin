@@ -1,3 +1,5 @@
+const { worker, isMainThread, parentPort, workerData } = require('worker_threads');
+require('./processingWorker.js');
 const sharp = require('sharp');
 const fs = require('fs');
 const readdirp = require('readdirp');
@@ -6,7 +8,7 @@ const cpus = require('os').cpus();
 const { Sema } = require('async-sema');
 const hashData = require('data-to-hash').default;
 const PROCESSOR_COUNT = cpus.length;
-const queue = new Sema(PROCESSOR_COUNT);
+const queue = new Sema(PROCESSOR_COUNT); // TODO: ADD queue functionity again
 const CONSOLE_COLOR_WARNING = '\x1b[33m%s\x1b[0m';
 const CONSOLE_COLOR_CRITICAL = '\x1b[41m%s\x1b[0m';
 class ImageProcessorPlugin {
@@ -33,17 +35,25 @@ class ImageProcessorPlugin {
                     // Add input directory to dependencies
                     compilation.contextDependencies.add(this.fullInputDir);
                     this.compilation = compilation;
-                    // TODO: add parameter fullInputDir
-                    const promises = new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs();
-                    promises.forEach(promise => {
-                        promise.then((val) => {
-                            const { finalImgRaw, outputPathFull } = val;
-                            this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw);
-                            queue.release();
+                    new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs().then((configPromises) => {
+                        Promise.all(configPromises).then(() => {
+                            resolve('');
+                        }).catch((error) => {
+                            console.log(error);
+                            reject(error);
                         });
                     });
+                    // promises.forEach(promise => {
+                    //     promise.then((val) => {
+                    //         const { finalImgRaw, outputPathFull } = val
+                    //         this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw)
+                    //         queue.release();
+                    //     })
+                    // });
                 }
-                resolve('');
+                else {
+                    reject('[ImageProcessorPlugin] Not first run!');
+                }
             });
         });
         compiler.hooks.watchRun.tap('WatchRun', (compilation) => {
@@ -85,16 +95,16 @@ class ConfigQueuer {
                     sharpMethods: (obj) => obj
                 };
                 const configuration = { ...defaultConfig, ...configurationUnclean };
-                promises.push(new ImageProcessor('', '', configuration.sharpMethods).processImage());
+                promises.push(new ImageProcessor(imgPathInfo.imgFullPath, '', configuration.sharpMethods).processImage());
             });
         }
         return promises;
     }
 }
 class ImageProcessor {
-    constructor(inputPathFull, ouputPathFull, sharpMethods) {
+    constructor(inputPathFull, outputPathFull, sharpMethods) {
         this.inputPathFull = inputPathFull;
-        ouputPathFull = ouputPathFull;
+        this.outputPathFull = outputPathFull;
         this.sharpMethods = sharpMethods;
     }
     async processImage() {
@@ -117,10 +127,10 @@ class ImageProcessor {
             console.log(CONSOLE_COLOR_CRITICAL, error);
             return;
         }
+        console.log("Computed " + path.basename(this.inputPathFull));
         // this.outputPathFull = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat)
+        queue.release();
         return this;
-    }
-    emmitImage() {
     }
 }
 module.exports = ImageProcessorPlugin;
