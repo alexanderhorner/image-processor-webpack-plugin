@@ -1,4 +1,17 @@
-const { worker, isMainThread, parentPort, workerData } = require('worker_threads');
+let waitXsec = (x) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(function () {
+            resolve('')
+        }, x*1000);
+    })
+}
+
+// TODO: - fix output path: DONE
+//       - add multithreading
+//       - dont regenerate done images
+
+
+// const { worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 require('./processingWorker.js')
 
@@ -12,7 +25,7 @@ const hashData = require('data-to-hash').default
 
 
 const PROCESSOR_COUNT = cpus.length
-const queue = new Sema(PROCESSOR_COUNT) // TODO: ADD queue functionity again
+const queue = new Sema(PROCESSOR_COUNT)
 
 const CONSOLE_COLOR_WARNING = '\x1b[33m%s\x1b[0m'
 const CONSOLE_COLOR_CRITICAL = '\x1b[41m%s\x1b[0m'
@@ -38,9 +51,9 @@ class ImageProcessorPlugin {
 
 
     inputDir: any;
-    fullInputDir: any;
+    inputContextDir: any;
     outputDir: any;
-    fullOutputDir: any;
+    outputContextDir: any;
     compilation: any;
     manifest: object;
 
@@ -71,20 +84,37 @@ class ImageProcessorPlugin {
                     // combine context and options input/ouputDir
                     // EXAMPLE: compiler.context: '/Users/alexanderhorner/Documents/GitHub/image-processor-webpack-plugin'
                     // EXAMPLE: this.options.inputDir: 'src/img/benchmark'
-                    this.fullInputDir = path.join(compiler.context, this.options.inputDir)
-                    this.fullOutputDir = path.join(compiler.context, this.options.outputDir)
-    
+                    this.inputContextDir = path.join(compiler.context, this.options.inputDir)
+                    this.outputContextDir = path.join(compiler.context, this.options.outputDir)
+
                     // Add input directory to dependencies
-                    compilation.contextDependencies.add(this.fullInputDir);
+                    compilation.contextDependencies.add(this.inputContextDir);
     
                     this.compilation = compilation
 
-                    new ConfigQueuer(this.options.configurations, this.fullInputDir).queueAllConfigs().then((configPromises) => {
-                        Promise.all(configPromises).then(() => {
-                            resolve('')
-                        }).catch((error) => {
-                            console.log(error)
-                            reject(error)
+                    new ConfigQueuer().queueAllConfigs(this.inputContextDir, this.options.configurations).then(ConfigQueuer => {
+                        Promise.all(ConfigQueuer.promises).then(results => {
+
+                            let assetEmmitPromises: Promise<any>[] = []
+
+                            console.timeEnd("ConfigProcessor")
+
+                            console.time("assetEmit")
+
+                            results.forEach((result: ConfigProcessor, index) => {
+                                assetEmmitPromises.push(
+                                    this.emmitAssetToAbsolutePath(
+                                        path.join(this.outputContextDir, result.outputPath), 
+                                        result.finalImgRaw
+                                    )
+                                )
+                            })
+
+                            Promise.all(assetEmmitPromises).then(data => {
+                                console.timeEnd("assetEmit")
+                                resolve('')
+                            })
+                            
                         })
                     })
 
@@ -114,7 +144,10 @@ class ImageProcessorPlugin {
     }
 
 
-    emmitAssetToAbsolutePath(absolutePath: string, source) {
+    async emmitAssetToAbsolutePath(absolutePath: string, source) {
+
+        await waitXsec(5)
+
         const ouputPathRelativeToCompilerOutputPath = path.relative(this.compilerOutputPath, absolutePath);
 
         this.compilation.assets[ouputPathRelativeToCompilerOutputPath] = {
@@ -125,31 +158,20 @@ class ImageProcessorPlugin {
 
 
 class ConfigQueuer {
-    configurations: Configuration[];
-    fullInputDir: string;
 
+    promises: Promise<any>[] = []
 
-    constructor(configurations: Configuration[], fullInputDir: string) {
-        this.configurations = configurations
-        this.fullInputDir = fullInputDir
-    }
-
-    async queueAllConfigs() {
+    async queueAllConfigs(inputContextDir: string, configurations: Configuration[]) {
         
-        let promises: Promise<any>[] = []
+        console.time("ConfigQuerer")
 
         const fileFilter = ['*.jpg', '.jpeg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
 
-        for await (const entry of readdirp(this.fullInputDir, {fileFilter: fileFilter})) {
-            
-            const imgPathInfo = {
-                imgFullPath: entry.fullPath,
-                imgDir: path.dirname(entry.path), // relative to the input directory
-                imgFileName: path.parse(entry.path).name,
-                imgFileExtension: path.extname(entry.path)
-            }
-            
-            this.configurations.forEach(configurationUnclean => {
+        console.time('ConfigProcessor')
+
+        for await (const entry of readdirp(inputContextDir, {fileFilter: fileFilter})) {
+                        
+            configurations.forEach(configurationUnclean => {
 
                 const defaultConfig = {
                     fileNamePrefix: '',
@@ -157,30 +179,35 @@ class ConfigQueuer {
                     directory: '',
                     sharpMethods: (obj) => obj
                 }
+
+                // let imgPath = 
     
                 const configuration = {...defaultConfig, ...configurationUnclean}
-    
-                promises.push(
-                    new ImageProcessor(imgPathInfo.imgFullPath, '', configuration.sharpMethods).processImage()
+                
+                this.promises.push(
+                    new ConfigProcessor(inputContextDir, entry.path, configuration).processImage()
                 )
+
             })
         }
 
-        return promises
+        console.timeEnd("ConfigQuerer")
+        return this
     }
 }
 
-class ImageProcessor {
-    inputPathFull: string
-    sharpMethods: Function
+class ConfigProcessor {
+    inputContextDir: string
+    imgPath: string
+    config: Configuration
 
-    finalImgRaw: any
-    outputPathFull: string
+    finalImgRaw: Uint8Array
+    outputPath: string
 
-    constructor(inputPathFull: string, outputPathFull: string, sharpMethods: Function) {
-        this.inputPathFull = inputPathFull
-        this.outputPathFull = outputPathFull
-        this.sharpMethods = sharpMethods
+    constructor(inputContextDir: string, imgPath: string, configuration: Configuration) {
+        this.inputContextDir = inputContextDir
+        this.imgPath = imgPath
+        this.config = configuration
     }
 
     async processImage() {
@@ -188,8 +215,15 @@ class ImageProcessor {
         await queue.acquire()
         
         try {
-            var sharpInstance = sharp(this.inputPathFull) // Read Image
-            sharpInstance = this.sharpMethods(sharpInstance) // apply methods
+
+            // Read Image
+            var sharpInstance = sharp(
+                path.join(this.inputContextDir, this.imgPath)
+            )
+
+            // apply methods
+            sharpInstance = this.config.sharpMethods(sharpInstance)
+
         } catch (error) {
             console.log(CONSOLE_COLOR_WARNING, error);
         }
@@ -197,6 +231,7 @@ class ImageProcessor {
         let finalImgformat
 
         try {
+
             this.finalImgRaw = await sharpInstance.toBuffer()
 
             // Read and set final output format
@@ -208,10 +243,23 @@ class ImageProcessor {
             return
         }
 
-        console.log("Computed " + path.basename(this.inputPathFull));
-        
+        console.log(CONSOLE_COLOR_CRITICAL, "Computed " + this.imgPath);
+        console.timeLog('ConfigProcessor')
 
-        // this.outputPathFull = path.join(this.fullOutputDir, config.directory, imgDir, config.fileNamePrefix + imgFileName + config.fileNameSuffix + '.' + finalImgformat)
+        let imgName = [
+            this.config.fileNamePrefix,
+            path.parse(
+                path.basename(this.imgPath)
+            ).name,
+            this.config.fileNameSuffix,
+            '.' + finalImgformat
+        ].join('')
+
+        this.outputPath = path.join(
+            this.config.directory,
+            path.dirname(this.imgPath),
+            imgName
+        )
 
         queue.release()
         return this

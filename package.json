@@ -26,7 +26,7 @@
     "data-to-hash": "^0.0.1",
     "readdirp": "^3.5.0",
     "sharp": "^0.28.0",
-    "typescript": "^4.2.4"
+    "typescript": "^4.3.5"
   },
   "devDependencies": {
     "webpack": "^5.4.0",

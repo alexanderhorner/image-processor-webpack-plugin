@@ -21,13 +21,6 @@ async function test2() {
 }
 promiseEachNonBlocking(promises, '');
 function promiseEachNonBlocking(promises, func) {
-    // var test = Promise.race(promises).then((value) => {
-    //     console.log(value)
-    //     promises.forEach(promise => {
-    //         const test = promise[1]
-    //         console.log({ promise })
-    //     });
-    // })
     promises.forEach(promise => {
         promise.then((val) => {
             resolveAfterXMilliseconds(500, '');
