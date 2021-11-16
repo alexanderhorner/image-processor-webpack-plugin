@@ -29,7 +29,7 @@
     "typescript": "^4.3.5"
   },
   "devDependencies": {
-    "webpack": "^5.4.0",
+    "webpack": "^5.64.1",
     "webpack-cli": "^4.5.0"
   }
 }
