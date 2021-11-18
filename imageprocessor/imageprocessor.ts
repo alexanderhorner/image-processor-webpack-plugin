@@ -1,11 +1,3 @@
-let waitXsec = (x) => {
-    return new Promise((resolve, reject) => {
-        setTimeout(function () {
-            resolve('')
-        }, x*1000);
-    })
-}
-
 // TODO: - fix output path: DONE
 //       - add multithreading
 //       - dont regenerate done images !!!
@@ -23,6 +15,8 @@ const cpus = require('os').cpus()
 const { Sema } = require('async-sema')
 // const hashData = require('data-to-hash').default
 const crypt = require('crypto');
+
+const PLUGIN_NAME = "ImageProcessor"
 
 const PROCESSOR_COUNT = cpus.length
 const queue = new Sema(Math.max(2, PROCESSOR_COUNT))
@@ -66,7 +60,7 @@ class ImageProcessorPlugin {
     compilation: any;
     manifest: object;
 
-    
+
     constructor(optionsUnclean: object) {
 
         const defaultOptions: Options = {
@@ -80,119 +74,53 @@ class ImageProcessorPlugin {
 
     apply(compiler) {
 
-        compiler.hooks.emit.tapPromise('ImageProcessor', (compilation) => {
+        compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation) => {
 
-            compilation.hooks.processAssets.tap(
+            this.firstRun = false
+            this.compilerOutputPath = compiler.outputPath
+
+            // combine context and options input/ouputDir
+            // EXAMPLE: compiler.context: '/Users/alexanderhorner/Documents/GitHub/image-processor-webpack-plugin'
+            // EXAMPLE: this.options.inputDir: 'src/img/benchmark'
+            this.inputContextDir = path.join(compiler.context, this.options.inputDir)
+            this.outputContextDir = path.join(compiler.context, this.options.outputDir)
+
+            // Add input directory to dependencies
+            compilation.contextDependencies.add(this.inputContextDir);
+
+            compilation.hooks.processAssets.tapAsync(
                 {
-                    name: 'ImageProcessorPlugin',
+                    name: PLUGIN_NAME,
                     stage: compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
-                    additionalAssets: (assets) => {
-                        console.log('List of assets and their sizes:');
-                        Object.entries(assets).forEach(([pathname, source]) => {
-                            console.log(`— ${pathname}: bytes`);
-                        });                    
-                    },
+                    additionalAssets: true,
                 },
-                (assets) => {
-                    console.log('List of assets and their sizes:');
-                    Object.entries(assets).forEach(([pathname, source]) => {
-                        console.log(`— ${pathname}: bytes`);
-                    });
+                (assets, callback) => { 
+                    this.processImages(compiler, compilation, assets).then(val => {
+                        callback()
+                    })
                 }
             );
-              
 
-            return new Promise((resolve, reject) => {
-
-                if (this.firstRun == true) {
-                    
-                    this.firstRun = false
-
-                    var self = this
-    
-                    this.compilerOutputPath = compiler.outputPath
-    
-                    // combine context and options input/ouputDir
-                    // EXAMPLE: compiler.context: '/Users/alexanderhorner/Documents/GitHub/image-processor-webpack-plugin'
-                    // EXAMPLE: this.options.inputDir: 'src/img/benchmark'
-                    this.inputContextDir = path.join(compiler.context, this.options.inputDir)
-                    this.outputContextDir = path.join(compiler.context, this.options.outputDir)
-
-                    // Add input directory to dependencies
-                    compilation.contextDependencies.add(this.inputContextDir);
-    
-                    this.compilation = compilation
-
-                    new ConfigQueuer().queueAllConfigs(this.inputContextDir, this.options.configurations).then(ConfigQueuer => {
-                        
-                        Promise.all(ConfigQueuer.promises).then(results => {
-
-                            // t2 = performance.now()
-
-                            let assetEmmitPromises: Promise<any>[] = []
-
-                            results.forEach((result: ConfigProcessor, index) => {
-                                assetEmmitPromises.push(
-                                    this.emmitAssetToAbsolutePath(
-                                        path.join(this.outputContextDir, result.outputPath), 
-                                        result.finalImgRaw
-                                    )
-                                )
-                            })
-
-                            Promise.all(assetEmmitPromises).then(data => {
-
-                                // var deltaT = Math.round(t2 - t1)
-                                // fs.writeFileSync(
-                                //     '/Users/alexanderhorner/Documents/GitHub/image-processor-webpack-plugin/benchmark.csv', 
-                                //     deltaT + 'ms;',
-                                //     { flag: 'a' }
-                                // )
-
-                                resolve('')
-                            })
-                            
-                        })
-                    })
-
-                    // promises.forEach(promise => {
-                    //     promise.then((val) => {
-                    //         const { finalImgRaw, outputPathFull } = val
-                    //         this.emmitAssetToAbsolutePath(outputPathFull, finalImgRaw)
-                    //         queue.release();
-                    //     })
-                    // });
-
-                } else {
-                    // reject('[ImageProcessorPlugin] Not first run!')
-                    resolve('')
-                }
-            })
         });
-
-        // compiler.hooks.watchRun.tap('WatchRun', (compilation) => {
-        //     if (compilation.modifiedFiles) {
-        //         const changedFiles = Array.from(compilation.modifiedFiles, (file) => `\n  ${file}`).join('');
-        //         console.log('===============================');
-        //         console.log('FILES CHANGED:', changedFiles);
-        //         console.log('===============================');
-        //     }
-        // });
     }
 
+    async processImages(compiler, compilation, assets) : Promise<void>  {
 
-    async emmitAssetToAbsolutePath(absolutePath: string, rawSource) {
+        const { RawSource } = compiler.webpack.sources;
 
-        // await waitXsec(5)
+        var configQueuer:ConfigQueuer = await new ConfigQueuer(this.inputContextDir, this.options.configurations).queueAllConfigs()
+                        
+        var results = await Promise.all(configQueuer.promises)
 
-        const ouputPathRelativeToCompilerOutputPath = path.relative(this.compilerOutputPath, absolutePath);
+        results.forEach((result: ConfigProcessor, index) => {
+            compilation.emitAsset(
+                this.outputDir, 
+                new RawSource(result.finalImgRaw), 
+                {}
+            );
+        })
 
-        this.compilation.assets[ouputPathRelativeToCompilerOutputPath] = {
-            source: () => rawSource
-        };
-        
-        // this.compilation.emitAsset(ouputPathRelativeToCompilerOutputPath, rawSource);
-
+        console.log(CONSOLE_COLOR_WARNING, "Done")
     }
 }
 
@@ -201,15 +129,23 @@ class ConfigQueuer {
 
     promises: Promise<any>[] = []
 
-    async queueAllConfigs(inputContextDir: string, configurations: Configuration[]) {
+    inputContextDir: string
+    configurations: Configuration[]
+
+    constructor(inputContextDir: string, configurations: Configuration[]) {
+        this.inputContextDir = inputContextDir
+        this.configurations = configurations
+    }
+
+    async queueAllConfigs() {
 
         const fileFilter = ['*.jpg', '.jpeg', '*.png', '*.webp', '*.avif', '*.tiff', '*.gif', '*.svg']
 
         // t1 = performance.now()
 
-        for await (const entry of readdirp(inputContextDir, {fileFilter: fileFilter})) {
+        for await (const entry of readdirp(this.inputContextDir, {fileFilter: fileFilter})) {
                         
-            configurations.forEach(configurationUnclean => {
+            this.configurations.forEach(configurationUnclean => {
 
                 const defaultConfig = {
                     fileNamePrefix: '',
@@ -217,11 +153,11 @@ class ConfigQueuer {
                     directory: '',
                     sharpMethods: (obj) => obj
                 }
-    
+
                 const configuration = {...defaultConfig, ...configurationUnclean}
-                
+
                 this.promises.push(
-                    new ConfigProcessor(inputContextDir, entry.path, configuration).processImage()
+                    new ConfigProcessor(this.inputContextDir, entry.path, configuration).processImage()
                 )
 
             })
