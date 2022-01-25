@@ -13,26 +13,26 @@ module.exports = {
     plugins: [
 
         new ImageProcessor({
-            inputDir: 'src/actual_images',
+            inputDir: 'src/img',
             outputDir: 'dist/processed',
             configurations: [
-                // {
-                //     sharpMethods: obj =>
-                //         obj.resize({ width: 2160 })
-                //             .jpeg({ quality: 60 })
-                // },
-                // {
-                //     fileNameSuffix: '-thumbnail',
-                //     sharpMethods: obj =>
-                //         obj.resize({ width: 326*2, height: 153*2 })
-                //             .jpeg({ quality: 60 })
-                // },
-                // {
-                //     fileNameSuffix: '-slide',
-                //     sharpMethods: obj =>
-                //         obj.resize({ width: 1080*2, height: 300*2 })
-                //             .jpeg({ quality: 60 })
-                // },
+                {
+                    sharpMethods: obj =>
+                        obj.resize({ width: 2160 })
+                            .jpeg({ quality: 60 })
+                },
+                {
+                    fileNameSuffix: '-thumbnail',
+                    sharpMethods: obj =>
+                        obj.resize({ width: 326*2, height: 153*2 })
+                            .jpeg({ quality: 60 })
+                },
+                {
+                    fileNameSuffix: '-slide',
+                    sharpMethods: obj =>
+                        obj.resize({ width: 1080*2, height: 300*2 })
+                            .jpeg({ quality: 60 })
+                },
                 {
                     fileNameSuffix: '-footer',
                     sharpMethods: obj =>
